@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STRIKE PROTOCOL</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="game-container"></div>
+
+<!-- ============ HUD ============ -->
+<div id="hud">
+  <div id="crosshair">
+    <div class="ch t"></div><div class="ch b"></div>
+    <div class="ch l"></div><div class="ch r"></div><div class="ch dot"></div>
+  </div>
+  <div id="hitmarker"><span></span><span></span><span></span><span></span></div>
+
+  <div id="compass"><div id="compass-strip"></div><div id="compass-needle"></div></div>
+
+  <div id="stage-panel">
+    <div id="stage-label">STAGE 1 — DUSTLINE OUTPOST</div>
+    <div id="objective-label">Eliminate all hostiles</div>
+  </div>
+  <div id="score-panel">
+    <div id="score-label">SCORE</div>
+    <div id="score-val">0</div>
+  </div>
+  <div id="killfeed"></div>
+
+  <div id="vitals">
+    <div class="bar-row"><div class="bar-label">HP</div>
+      <div class="bar"><div class="fill" id="health-bar-fill"></div></div>
+      <div class="bar-num" id="health-num">100</div></div>
+    <div class="bar-row"><div class="bar-label">ARMOR</div>
+      <div class="bar"><div class="fill" id="armor-bar-fill" style="width:0%"></div></div>
+      <div class="bar-num" id="armor-num">0</div></div>
+  </div>
+  <div id="ammo-panel">
+    <div id="weapon-name">P-9 SIDEARM</div>
+    <div id="ammo-line"><span id="ammo-mag">12</span> <span id="ammo-reserve">/ 60</span></div>
+  </div>
+
+  <div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+  <div id="dmg-vignette"></div>
+  <div id="lowhp"></div>
+  <div id="interact-tip"></div>
+  <div id="boss-bar-wrap"><div id="boss-name"></div><div id="boss-bar"><div id="boss-fill"></div></div></div>
+  <div id="scope-overlay"></div>
+</div>
+
+<!-- ============ Touch controls ============ -->
+<div id="touch-ui">
+  <div id="joy-base"><div id="joy-knob"></div></div>
+  <div class="tbtn" id="btn-fire">FIRE</div>
+  <div class="tbtn" id="btn-jump">JUMP</div>
+  <div class="tbtn" id="btn-reload">RLD</div>
+  <div class="tbtn" id="btn-weapon">WPN</div>
+  <div class="tbtn" id="btn-ads">ADS</div>
+  <div class="tbtn" id="btn-pause-m">II</div>
+</div>
+
+<!-- ============ Screens ============ -->
+<div class="screen" id="screen-menu"><div class="panel">
+  <div class="game-title">STRIKE <span class="accent">PROTOCOL</span></div>
+  <div class="tagline">FIVE STAGES. ONE OPERATOR. NO BACKUP.</div>
+  <div class="controls-grid">
+    <b>W A S D</b><span>Move</span><b>MOUSE</b><span>Look</span>
+    <b>CLICK</b><span>Fire</span><b>R</b><span>Reload</span>
+    <b>1–4</b><span>Weapons</span><b>SHIFT</b><span>Sprint</span>
+    <b>SPACE</b><span>Jump</span><b>RMB</b><span>Aim (sniper scope)</span>
+    <b>ESC</b><span>Pause</span>
+  </div>
+  <button class="btn" id="btn-deploy">▶ DEPLOY</button>
+  <div id="stage-list"></div>
+  <div class="menu-foot">CLICK DEPLOY, THEN CLICK AGAIN TO CAPTURE THE MOUSE · <span id="menu-best"></span></div>
+</div></div>
+
+<div class="screen" id="screen-briefing"><div class="panel">
+  <h2 class="screen-h" id="brief-name">STAGE 1</h2>
+  <div class="brief-sub" id="brief-sub"></div>
+  <div class="brief-intel" id="brief-intel"></div>
+  <div class="brief-loadout" id="brief-loadout"></div>
+  <button class="btn" id="btn-start-stage">BEGIN MISSION</button>
+  <button class="btn ghost" id="btn-brief-back">BACK</button>
+</div></div>
+
+<div class="screen" id="screen-pause"><div class="panel">
+  <h2 class="screen-h">PAUSED</h2>
+  <div class="tagline">PROTOCOL ON HOLD</div><br>
+  <button class="btn" id="btn-resume">RESUME</button><br>
+  <button class="btn ghost" id="btn-restart-stage">RESTART STAGE</button>
+  <button class="btn ghost" id="btn-quit-menu">ABORT TO MENU</button>
+</div></div>
+
+<div class="screen" id="screen-debrief"><div class="panel">
+  <div class="big-result win">STAGE CLEAR</div>
+  <div class="tagline" id="debrief-sub"></div>
+  <div class="stat-table" id="debrief-stats"></div>
+  <button class="btn" id="btn-next-stage">NEXT STAGE ▶</button>
+</div></div>
+
+<div class="screen" id="screen-gameover"><div class="panel">
+  <div class="big-result lose">K.I.A.</div>
+  <div class="tagline" id="gameover-sub">THE PROTOCOL CONTINUES WITHOUT YOU</div>
+  <div class="stat-table" id="gameover-stats"></div>
+  <button class="btn" id="btn-retry">RETRY STAGE</button>
+  <button class="btn ghost" id="btn-quit-menu2">ABORT TO MENU</button>
+</div></div>
+
+<div class="screen" id="screen-victory"><div class="panel">
+  <div class="big-result win">PROTOCOL COMPLETE</div>
+  <div class="tagline">ALL FIVE STAGES SECURED · WARLORD VEX ELIMINATED</div>
+  <div class="stat-table" id="victory-stats"></div>
+  <button class="btn" id="btn-again">RUN IT AGAIN</button>
+  <button class="btn ghost" id="btn-quit-menu3">MENU</button>
+</div></div>
+
+<div id="loading">ESTABLISHING UPLINK…</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
