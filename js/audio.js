@@ -1,10 +1,9 @@
-// G-Football 2027 — all audio synthesized with WebAudio (no files)
-export class AudioSys {
+// STRIKE PROTOCOL — synthesized WebAudio SFX (no audio files)
+export class GameAudio {
   constructor() {
     this.ctx = null;
-    this.crowdGain = null;
-    this.crowdFilter = null;
     this.master = null;
+    this.muted = false;
   }
   unlock() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
@@ -12,87 +11,88 @@ export class AudioSys {
     if (!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.8;
+    this.master.gain.value = 0.55;
     this.master.connect(this.ctx.destination);
-    this.startCrowd();
   }
-  // looping crowd ambience: filtered noise
-  startCrowd() {
-    const ctx = this.ctx;
-    const len = ctx.sampleRate * 2;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  _noiseBuffer(dur) {
+    const sr = this.ctx.sampleRate, buf = this.ctx.createBuffer(1, sr * dur, sr);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource();
-    src.buffer = buf; src.loop = true;
-    this.crowdFilter = ctx.createBiquadFilter();
-    this.crowdFilter.type = 'bandpass';
-    this.crowdFilter.frequency.value = 900;
-    this.crowdFilter.Q.value = 0.6;
-    this.crowdGain = ctx.createGain();
-    this.crowdGain.gain.value = 0.05;
-    src.connect(this.crowdFilter).connect(this.crowdGain).connect(this.master);
-    src.start();
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
   }
-  crowdExcite(level) { // 0..1
-    if (this.crowdGain) {
-      const t = this.ctx.currentTime;
-      this.crowdGain.gain.cancelScheduledValues(t);
-      this.crowdGain.gain.setTargetAtTime(0.05 + level * 0.22, t, 0.4);
-    }
+  _noise(dur, filterFreq, type, gain, decay) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(dur);
+    const f = this.ctx.createBiquadFilter();
+    f.type = type || 'lowpass'; f.frequency.value = filterFreq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decay);
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t); src.stop(t + dur);
   }
-  noiseBurst(dur, freq, gain, type = 'lowpass') {
-    if (!this.ctx) return;
-    const ctx = this.ctx, t = ctx.currentTime;
-    const len = Math.ceil(ctx.sampleRate * dur);
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
-    const g = ctx.createGain(); g.gain.value = gain;
-    src.connect(f).connect(g).connect(this.master);
-    src.start(t);
-  }
-  tone(freq, dur, gain, type = 'sine', slideTo = null) {
-    if (!this.ctx) return;
-    const ctx = this.ctx, t = ctx.currentTime;
-    const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+  _tone(freq, dur, type, gain, slideTo) {
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
     if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-    const g = ctx.createGain();
+    const g = this.ctx.createGain();
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.connect(g).connect(this.master);
-    o.start(t); o.stop(t + dur + 0.02);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + dur);
   }
-  kick(power = 0.5) {
-    this.tone(120, 0.12, 0.25 + power * 0.4, 'sine', 45);
-    this.noiseBurst(0.08, 900, 0.12 + power * 0.2);
-  }
-  tackle() {
-    this.noiseBurst(0.15, 500, 0.3);
-    this.tone(90, 0.15, 0.2, 'triangle', 50);
-  }
-  post() { this.tone(620, 0.35, 0.25, 'triangle', 590); } // "ping" off the woodwork
-  whistle(times = 1) {
-    for (let i = 0; i < times; i++) {
-      setTimeout(() => this.tone(2350, 0.28, 0.22, 'square'), i * 380);
+  shoot(kind) {
+    switch (kind) {
+      case 'pistol':
+        this._noise(0.14, 3200, 'lowpass', 0.5, 0.12);
+        this._tone(190, 0.09, 'square', 0.25, 60); break;
+      case 'rifle':
+        this._noise(0.11, 3800, 'lowpass', 0.45, 0.1);
+        this._tone(230, 0.07, 'sawtooth', 0.2, 70); break;
+      case 'shotgun':
+        this._noise(0.3, 1800, 'lowpass', 0.8, 0.28);
+        this._tone(110, 0.22, 'square', 0.35, 40); break;
+      case 'sniper':
+        this._noise(0.4, 2400, 'lowpass', 0.7, 0.38);
+        this._tone(320, 0.25, 'sawtooth', 0.25, 50); break;
+      case 'enemy':
+        this._noise(0.12, 2200, 'lowpass', 0.28, 0.1);
+        this._tone(160, 0.08, 'square', 0.14, 55); break;
+      case 'bossgun':
+        this._noise(0.16, 1500, 'lowpass', 0.6, 0.15);
+        this._tone(95, 0.14, 'sawtooth', 0.3, 35); break;
     }
   }
-  cheer(big = false) {
-    this.crowdExcite(big ? 1 : 0.55);
-    this.noiseBurst(big ? 2.2 : 1.1, 1400, big ? 0.5 : 0.28, 'bandpass');
-    setTimeout(() => this.crowdExcite(0.08), big ? 2600 : 1400);
+  dryFire() { this._tone(1400, 0.05, 'square', 0.12); }
+  reload() {
+    this._tone(500, 0.05, 'square', 0.15);
+    setTimeout(() => this._tone(700, 0.05, 'square', 0.15), 140);
+    setTimeout(() => this._tone(950, 0.07, 'square', 0.18), 320);
   }
-  goalHorn() {
-    this.tone(196, 0.9, 0.3, 'sawtooth', 185);
-    this.tone(147, 0.9, 0.25, 'sawtooth', 140);
+  hit(head) { this._tone(head ? 1500 : 1100, 0.06, 'square', 0.16); }
+  kill() { this._tone(660, 0.07, 'square', 0.2); setTimeout(() => this._tone(990, 0.09, 'square', 0.2), 70); }
+  hurt() { this._noise(0.2, 500, 'lowpass', 0.6, 0.18); this._tone(90, 0.18, 'sine', 0.4, 45); }
+  pickup(kind) {
+    if (kind === 'health') { this._tone(520, 0.09, 'sine', 0.25); setTimeout(() => this._tone(780, 0.12, 'sine', 0.25), 90); }
+    else if (kind === 'armor') { this._tone(392, 0.09, 'sine', 0.25); setTimeout(() => this._tone(587, 0.12, 'sine', 0.25), 90); }
+    else { this._tone(440, 0.07, 'square', 0.18); setTimeout(() => this._tone(660, 0.07, 'square', 0.18), 80); }
   }
-  click() { this.tone(660, 0.06, 0.12, 'square'); }
-  save() {
-    this.noiseBurst(0.5, 1100, 0.2, 'bandpass');
-    this.crowdExcite(0.4);
-    setTimeout(() => this.crowdExcite(0.08), 900);
+  boom(big) {
+    this._noise(big ? 1.1 : 0.6, 700, 'lowpass', 0.9, big ? 1.0 : 0.55);
+    this._tone(60, big ? 0.9 : 0.5, 'sine', 0.6, 28);
+  }
+  uiClick() { this._tone(880, 0.05, 'square', 0.12); }
+  step() { this._noise(0.05, 900, 'lowpass', 0.08, 0.05); }
+  sting(win) {
+    const seq = win ? [392, 523, 659, 784] : [330, 262, 196, 131];
+    seq.forEach((f, i) => setTimeout(() => this._tone(f, 0.22, 'triangle', 0.28), i * 150));
+  }
+  bossRoar() {
+    this._noise(0.8, 400, 'lowpass', 0.7, 0.75);
+    this._tone(70, 0.7, 'sawtooth', 0.4, 40);
   }
 }
-export const audio = new AudioSys();
